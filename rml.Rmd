@@ -1,0 +1,144 @@
+---
+title: "Regresión Lineal Múltiple"
+author: "Miguel Ángel Sánchez Guachamín"
+date: "2 de agosto de 2015"
+output: html_document
+---
+
+### Introducción
+
+Dado varias variables, se pretende realizar una regresión lineal multiple con las variables que influyan mas en la regresión.
+
+### Procedimiento
+
+Comenzamos cargando los archivos __poblacion1.xlsx__ y __poblacion2.xlsx__, y analizamos sus dimensiones.
+
+```{r,echo=TRUE,eval=TRUE}
+library(readxl)
+poblacion1 <- read_excel("poblacion1.xlsx", sheet=1, na=" ")
+poblacion2 <- read_excel("poblacion2.xlsx", sheet=1, na=" ")
+dim1<-dim(poblacion1)
+dim2<-dim(poblacion2)
+```
+Analizando la información disponemos de `r nrow(poblacion1)` observaciones de `r ncol(poblacion1)` variables para __poblacion1.xlsx__. Y de `r nrow(poblacion2)` observaciones de `r ncol(poblacion2)` variables para __poblacion2.xlsx__.
+
+Luego, unimos los dos archivos en un mismo objeto el cual lamamos __poblacion__.
+```{r,echo=TRUE,eval=TRUE}
+poblacion<-merge(poblacion1, poblacion2, by="identificador",suffixes=c("",""))
+View (poblacion)
+```
+y realizamos digramas de cajas para las variables continuas y diagramas de barras para las variables discretas.
+```{r,echo=TRUE,eval=TRUE}
+for(j in 2:dim(poblacion)[2]){
+  if(is.numeric(poblacion[,j])==TRUE){
+    print(names(poblacion)[j])
+    boxplot(poblacion[,j], main = "Diagrama de Cajas" , col = j)
+  }else {
+    print(names(poblacion)[j])
+    barplot(table(poblacion[,j]), col = j, main = "Diagrama de Barras")
+  }
+}
+```
+
+```{r,echo=TRUE,eval=FALSE}
+#Calculamos el mínimo, media, máximo, desviación estandar, primer cuartil de cada variable numérica y la frecuencia en el caso de variables discretas.
+  for(j in 2:dim(poblacion)[2]){
+    if(is.numeric(poblacion[,j])==TRUE){
+      
+      print(names(poblacion)[j])
+      print("minimo=")
+      print(min(poblacion[,j]))
+      print("media=")
+      print(mean(poblacion[,j]))
+      print("maximo=")
+      print(max(poblacion[,j]))
+      print("desviacion estandar=")
+      print(sd(poblacion[,j]))
+      print("cuartiles=")
+      print(quantile(poblacion[,j],probs=seq(0,1,0.25),na.rm = FALSE))
+    }else {
+      
+      print(names(poblacion)[j])
+      print("frecuencia")
+      print(table(poblacion[,j])/dim(poblacion)[1])
+
+    }
+    
+  }
+```
+Calculamos la correlación que existe entre la variable dependiente __poblacion__ y cada una de las variables explicativas, tomando en cuenta solo las variables numéricas.
+```{r,echo=TRUE,eval=TRUE}
+for(i in 3:dim(poblacion)[2]){
+  if(is.numeric(poblacion[,i])==TRUE){
+    correlacion<-cor(poblacion[,2],poblacion[,i])
+    print(names(poblacion)[i])
+    print(correlacion)
+  }
+}
+```
+Podemos notar que existe una correlación significativa entre la variable dependiente __poblacion__ y las variables __var.pobl.mayor__, __menores.18__ y __tasa.crimen__, la correlacion entre __poblacion__ y __var.pobl.mayor__ es `r cor(poblacion[,2],poblacion[,3])`, entre __poblacion__ y __menores.18__ es `r cor(poblacion[,2],poblacion[,4])` y la correlación entre __poblacion__ y __tasa.crimen__ es de `r cor(poblacion[,2],poblacion[,7])`.
+
+Por lo cual relizaremos una regresión mútiple con dichas variables las cuales tienen una mayor correlación con la variable población.
+Realizando la regresión múltiple obtenemos los siguientes resultados.
+```{r,echo=TRUE,eval=TRUE}
+regresion<-lm(poblacion~var.pobl.mayor+menores.18+tasa.crimen,data=poblacion)
+summary(regresion)
+```
+Es decir uestro modelo resultante estaría dado por:
+$$\hat{`r substring(names(poblacion)[2],1,2)`} = `r regresion$coefficients[1]` + `r regresion$coefficients[2]` \hat{`r substring(names(poblacion)[3],1,2)`} + `r regresion$coefficients[3]` \hat{`r substring(names(poblacion)[4],1,2)`}  `r regresion$coefficients[4]` \hat{`r substring(names(poblacion)[7],1,2)`}$$
+
+###Interpretación
+__Interpretación modelo:__ _Si `r names(poblacion)[3]` se incrementa en una unidad, entonces `r names(poblacion)[2]`
+`r tex <-"aumenta"; if(regresion$coefficients[2]<0) (tex<-"disminuye");tex` en promedio `r abs(regresion$coefficients[2])`
+unidades._
+_Si `r names(poblacion)[4]` se incrementa en una unidad, entonces `r names(poblacion)[2]`
+`r tex <-"aumenta"; if(regresion$coefficients[3]<0) (tex<-"disminuye");tex` en promedio `r abs(regresion$coefficients[3])`
+unidades._
+_Si `r names(poblacion)[7]` se incrementa en una unidad, entonces `r names(poblacion)[2]`
+`r tex <-"aumenta"; if(regresion$coefficients[4]<0) (tex<-"disminuye");tex` en promedio `r abs(regresion$coefficients[4])`
+unidades._
+
+__Interpretación $R^2$:__ _El modelo de regresión lineal obtenido explica el `r paste(100*summary(regresion)$r.squared,"%")` de la variabilidad total._
+
+### Pruebas de hipótesis
+
+Como $t= `r summary(regresion)$coefficients[2,3]`$ es `r tex<-"menor"; if(summary(regresion)$coefficients[2,3]>qt(0.975 , df =nrow(poblacion)-4)) tex<-"mayor"; tex` que 
+$t_{`r (nrow(poblacion)-4)`}(\frac{\alpha}{2})= `r qt(0.975 , df =nrow(poblacion)-4)`$
+`r tex<-"rechazo"; if(summary(regresion)$coefficients[2,3]>qt(0.975 , df =nrow(poblacion)-4)) tex<-"no rechazo"; tex`
+$H_0: \beta_2=0$.
+
+Como $t= `r summary(regresion)$coefficients[3,3]`$ es `r tex<-"menor"; if(summary(regresion)$coefficients[3,3]>qt(0.975 , df =nrow(poblacion)-4)) tex<-"mayor"; tex` que 
+$t_{`r (nrow(poblacion)-4)`}(\frac{\alpha}{2})= `r qt(0.975 , df =nrow(poblacion)-4)`$
+`r tex<-"rechazo"; if(summary(regresion)$coefficients[3,3]>qt(0.975 , df =nrow(poblacion)-4)) tex<-"no rechazo"; tex`
+$H_0: \beta_3=0$.
+
+Como $t= `r summary(regresion)$coefficients[4,3]`$ es `r tex<-"menor"; if(summary(regresion)$coefficients[4,3]>qt(0.975 , df =nrow(poblacion)-4)) tex<-"mayor"; tex` que 
+$t_{`r (nrow(poblacion)-4)`}(\frac{\alpha}{2})= `r qt(0.975 , df =nrow(poblacion)-4)`$
+`r tex<-"rechazo"; if(summary(regresion)$coefficients[4,3]>qt(0.975 , df =nrow(poblacion)-4)) tex<-"no rechazo"; tex`
+$H_0: \beta_4=0$.
+
+### Análisis de varianza
+
+Realizando la tabla __ANOVA__ tenemos los siguientes resultados:
+```{r,echo=TRUE,eval=TRUE}
+anova <- aov(regresion)
+summary(anova)[[1]]
+```
+Como $F=`r summary(anova)[[1]][1,4]`$ es `r tex<-"menor"; if(summary(anova)[[1]][1,4]>qf(0.95,3,(nrow(poblacion)-4))) tex<-"mayor"; tex` que $F_{3,`r (nrow(poblacion)-4)`}(\frac{\alpha}{2})= `r qf(0.95,3,(nrow(poblacion)-4))`$
+`r tex<-"no rechazo"; if(summary(anova)[[1]][1,4]>qf(0.95,3,(nrow(poblacion)-4))) tex<-"rechazo"; tex`
+$H_0: \beta_2=\beta_3=\beta_4=0$.
+
+### Gráficos residuales
+```{r}
+residuo <- regresion[["residuals"]]
+prediccion <- regresion[["fitted.values"]]
+data <- data.frame("poblacion", prediccion,residuo)
+```
+
+```{r, fig.align="center",fig.width=5,fig.height=4}
+hist(residuo,15)
+mean(residuo)
+qqnorm(residuo)
+qqline(residuo,col="red")
+plot(residuo,prediccion)
+```
